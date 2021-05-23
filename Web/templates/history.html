@@ -1,0 +1,93 @@
+{% extends 'base.html' %}
+
+{% block content %}
+  <h2>History</h2>
+  <div id="tableHistoryContainer" style="display:none">
+    <table id="tableHistory">
+      <thead>
+          <tr>
+              <th>Shots</th>
+              <th>Resources</th>
+              <th>Reporting Ratio</th>
+              <th>Digits</th>
+              <th>Final Pi</th>
+              <th>Cost</th>
+          </tr>
+      </thead>
+    </table>
+  </div>
+
+  <script type="text/javascript">
+    google.charts.load('current', {'packages':['corechart']});
+
+    $(window).on("load", function() { 
+      showTable()
+    })
+
+    function showTable() {
+      $.get('/history/getData', function(rawData){
+        records = rawData.split('\n')
+        data = []
+        records.forEach((record, index) => {
+            if (record) {
+              var values = record.split('\t')
+              row = {
+                'shots': values[0],
+                'resources': values[1],
+                'reporting_ratio': values[2],
+                'digits': values[3],
+                'final_pi': parseFloat(values[4]).toFixed(values[3]-1),
+                'cost': parseFloat(values[5]).toFixed(2),
+                'run_at': Date.parse(values[6])
+              }
+              data.push(row)
+            }
+        })
+        console.log(data)
+        data.sort((record1, record2) => {
+          return record2.run_at - record1.run_at
+        });
+        console.log(data)
+        $('#tableHistoryContainer').show()
+        $('#tableHistory').DataTable({
+            searching: false,
+            destroy: true,
+            data: data,
+            columns: [
+                { data: 'shots' },
+                { data: 'resources' },
+                { data: 'reporting_ratio' },
+                { data: 'digits' },
+                { data: 'final_pi' },
+                { data: 'cost' }
+            ],
+            "order": []
+        });
+      });
+    }
+
+    function drawChart(data, order) {
+        var piValues = []
+        data.forEach((record, index) => {
+          var pi = 4.0 * record.incircle / record.shots
+          piValues.push(pi)
+        })
+
+        var table = [['No','PiEst', 'Pi']];
+        var count = 0;
+        piValues.forEach((piValue, index) => {
+          count++;
+          var record = [count, piValue, Math.PI];
+          table.push(record);
+        })
+        var data = google.visualization.arrayToDataTable(table);
+        var options = {
+          title: 'Pi Estimation',
+          curveType: 'function',
+          legend: { position: 'bottom' }
+        };
+        var chart = new google.visualization.LineChart(document.getElementById('chart-' + order));
+        chart.draw(data, options);
+      }
+  </script>
+{% endblock %}

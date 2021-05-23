@@ -1,0 +1,132 @@
+{% extends 'base.html' %}
+
+{% block content %}
+  <h2>Pi Reporting</h2>
+
+  <select name="services" id="ddlServices">
+    <option value="Lambda">Lambda</option>
+    <option value="EC2">EC2</option>
+  </select>
+
+  <div>
+    <label for="fname">S</label><br>
+    <input type="number" id="shots" name="s" value="1200000"><br>
+
+    <label for="fname">R</label><br>
+    <input type="number" id="resources" name="r" value="6"><br>
+
+    <label for="fname">Q</label><br>
+    <input type="number" id="reporting_ratio" name="q" value="10000"><br>
+
+    <label for="fname">D</label><br>
+    <input type="number" id="digits" name="d" value="5"><br>
+
+    <input type="button" onclick="getValues()" value='Run'/>
+    <input type="button" onclick="resetValues()" value='Reset'/>
+  </div>
+
+  <div id="loading"></div>
+  <div id="piValue"></div>
+  <div id="cost"></div>
+  <div id="isMatched"></div>
+  <div id="chart"></div>
+  <div id="tableContainer" style="display:none">
+    <table id="table">
+      <thead>
+          <tr>
+              <th>Resource Id</th>
+              <th>Incircle</th>
+              <th>Shots</th>
+          </tr>
+      </thead>
+    </table>
+  </div>
+
+  <script type="text/javascript">
+    google.charts.load('current', {'packages':['corechart']});
+    $(document).ready(function() {
+      document.title = 'Pi Est'
+    })
+
+    function getValues(shots, resources, reporting_ratio, digits) {
+      $('#loading').html('Loading')
+      $('#piValue').html('')
+      $('#cost').html('')
+      $('#isMatched').html('')
+      $('#tableContainer').hide()
+      $('#chart').html('')
+
+      var service = $("#ddlServices").val();
+      var shots = $("#shots").val();
+      var resources = $("#resources").val();
+      var reporting_ratio = $("#reporting_ratio").val();
+      var digits = $("#digits").val();
+
+      url = 'getValues/' + service + '/' + shots + '/' + resources + '/'+ reporting_ratio + '/'+ digits
+      $.get(url, function(response){
+        console.log(response)
+        $('#loading').html('')
+        $('#piValue').html(response.final_pi.toFixed(digits-1))
+        $('#cost').html(response.cost.toFixed(2))
+        $('#isMatched').html(response.is_matched ? "Found" : "Not found")
+        showTable(response.data)
+        google.charts.setOnLoadCallback(drawChart(response.data));
+      });
+    }
+
+    function resetValues() {
+      $("#ddlServices").val('Lambda')
+      $("#shots").val(10)
+      $("#resources").val(1)
+      $("#reporting_ratio").val(1)
+      $("#digits").val(1)
+
+      $('#loading').html('')
+      $('#piValue').html('')
+      $('#cost').html('')
+      $('#isMatched').html('')
+      $('#tableContainer').hide()
+      $('#chart').html('')
+    }
+
+    function showTable(data) {
+      $('#tableContainer').show()
+      $('#table').DataTable({
+          searching: false,
+          destroy: true,
+          data: data,
+          columns: [
+              { data: 'resource_id' },
+              { data: 'incircle' },
+              { data: 'shots' }
+          ]
+      });
+    }
+
+    function drawChart(data) {
+        var piValues = []
+        data.forEach((record, index) => {
+          var pi = 4.0 * record.incircle / record.shots
+          piValues.push(pi)
+        })
+
+        var table = [['No','PiEst', 'Pi']];
+        var count = 0;
+        piValues.forEach((piValue, index) => {
+          count++;
+          var record = [count, piValue, Math.PI];
+          table.push(record);
+        })
+        var data = google.visualization.arrayToDataTable(table);
+        var options = {
+          title: 'Pi Estimation',
+          curveType: 'function',
+          legend: { position: 'bottom' }
+        };
+
+        var chart = new google.visualization.LineChart(document.getElementById('chart'));
+
+        chart.draw(data, options);
+      }
+  </script>
+{% endblock %}
